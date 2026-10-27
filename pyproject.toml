@@ -1,0 +1,11 @@
+[project]
+name = "false-green-bench"
+version = "0.1.0"
+description = "A benchmark of false greens: CI and agent signals that say 'passed' without measuring."
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "Apache-2.0"}
+dependencies = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

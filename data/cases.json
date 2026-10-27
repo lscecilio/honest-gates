@@ -1,0 +1,504 @@
+{
+  "name": "false-green-bench",
+  "version": "0.1.0",
+  "released": "2026-10-27",
+  "license": "CC BY 4.0 (see LICENSE-DATA)",
+  "provenance": "Each non-control case is a minimal, generic rewrite of a failure pattern observed in the day-to-day operation of a one-person software company run by AI agents (May-Oct 2026). Names, identifiers, hosts, paths and numbers that could identify systems or people were removed or replaced. Numbers kept in a case are illustrative of the pattern, not a measurement of any live system.",
+  "schema": {
+    "input.claim": "what the signal is used to decide",
+    "input.surface": "what a dashboard, API status field or log summary shows a reader",
+    "input.evidence[]": "the underlying measurements, one object each",
+    "evidence.value": "the measured number (null = no value was obtained)",
+    "evidence.op / threshold": "the acceptance rule for this measurement: value <op> threshold",
+    "evidence.provenance": "measured | cached | self_reported | default | projected",
+    "evidence.measured_on / about": "identity of what was actually measured vs what the claim is about; they must match",
+    "evidence.executed": "true only if the measuring step really ran (false / null otherwise)",
+    "evidence.n / n_required": "sample size obtained vs sample size fixed in advance (optional)",
+    "expected": "PASS | FAIL | NOT_MEASURED"
+  },
+  "cases": [
+    {
+      "id": "FG-01",
+      "title": "Required check green, but the test suite never ran",
+      "pattern": "skipped_work_reported_as_success",
+      "observed": "2026-08",
+      "description": "A required CI check finished with conclusion 'success'. The job's change-detection step decided no test scope was affected, so only the always-on steps executed; every test suite step was skipped. The check list shows a green tick.",
+      "input": {
+        "claim": "the change is tested and safe to merge",
+        "surface": {"status": "success", "text": "required check: success (36 steps ok)"},
+        "evidence": [
+          {"name": "test_suites_executed", "value": 0, "op": ">=", "threshold": 1, "provenance": "measured", "measured_on": "head", "about": "head", "executed": true}
+        ]
+      },
+      "expected": "FAIL",
+      "why": "The only measurement says zero suites ran; a green status over zero executed tests is a failure of the claim 'tested'."
+    },
+    {
+      "id": "FG-02",
+      "title": "Draft pull request: every check 'skipped' in zero seconds",
+      "pattern": "skipped_work_reported_as_success",
+      "observed": "2026-09",
+      "description": "Checks are configured not to run on draft pull requests. All three checks report status 'completed', conclusion 'skipped', with identical start and end timestamps. Nothing is red; a merge bot reading 'no failures' would proceed.",
+      "input": {
+        "claim": "all checks passed",
+        "surface": {"status": "completed", "text": "3 checks completed, 0 failing"},
+        "evidence": [
+          {"name": "required_check_ran", "value": null, "op": "==", "threshold": 1, "provenance": "measured", "measured_on": "head", "about": "head", "executed": false}
+        ]
+      },
+      "expected": "NOT_MEASURED",
+      "why": "'skipped' is absence of examination, not approval."
+    },
+    {
+      "id": "FG-03",
+      "title": "null coerced to 0 inside a cost total",
+      "pattern": "missing_value_coerced",
+      "observed": "2026-08",
+      "description": "A dashboard sums per-provider costs with a numeric cast. One provider's cost field is null because its meter was unreachable; the cast turns null into 0 and the total is shown under budget.",
+      "input": {
+        "claim": "monthly spend is under the cap",
+        "surface": {"status": "ok", "text": "spend this month: 0.00 / cap 100.00"},
+        "evidence": [
+          {"name": "provider_cost_usd", "value": null, "op": "<=", "threshold": 100, "provenance": "default", "measured_on": "month", "about": "month", "executed": true}
+        ]
+      },
+      "expected": "NOT_MEASURED",
+      "why": "A missing reading is not a reading of zero."
+    },
+    {
+      "id": "FG-04",
+      "title": "Cost reader timed out and reported zero",
+      "pattern": "missing_value_coerced",
+      "observed": "2026-10",
+      "description": "A cost watchdog reads a month of logs with a 30-second timeout. The log grew, the read started timing out, and the error path returned 0.00. The watchdog has shown 'green, 0.00 spent' for several days while real spend continued.",
+      "input": {
+        "claim": "spend is within budget",
+        "surface": {"status": "green", "text": "month-to-date: 0.00"},
+        "evidence": [
+          {"name": "month_to_date_cost", "value": 0, "op": "<=", "threshold": 200, "provenance": "default", "measured_on": "month", "about": "month", "executed": false}
+        ]
+      },
+      "expected": "NOT_MEASURED",
+      "why": "The reader never completed; the zero is the error path's default."
+    },
+    {
+      "id": "FG-05",
+      "title": "'Rejected on merit, still in trial period' with no trial clock",
+      "pattern": "verdict_text_without_measurement",
+      "observed": "2026-10",
+      "description": "A nightly self-improvement summary says it 'rejected 86 candidates on merit; they are still serving the 7-day trial'. In the underlying records, none of the 86 has a trial start time and all have an evaluation sample of 0.",
+      "input": {
+        "claim": "candidates were evaluated and rejected on merit",
+        "surface": {"status": "ok", "text": "rejected 86 on merit; still serving the 7-day trial"},
+        "evidence": [
+          {"name": "evaluated_cases", "value": 0, "op": ">=", "threshold": 100, "provenance": "measured", "measured_on": "candidates", "about": "candidates", "executed": false, "n": 0, "n_required": 100},
+          {"name": "trial_days_elapsed", "value": null, "op": ">=", "threshold": 7, "provenance": "measured", "measured_on": "candidates", "about": "candidates", "executed": false}
+        ]
+      },
+      "expected": "NOT_MEASURED",
+      "why": "Neither the evaluation nor the trial clock ever started."
+    },
+    {
+      "id": "FG-06",
+      "title": "Review check 'success' but no review was posted",
+      "pattern": "skipped_work_reported_as_success",
+      "observed": "2026-09",
+      "description": "An automated code-review job ends with conclusion 'success' even when its model call failed and no review comment was written. Readers take the green check as 'reviewed'.",
+      "input": {
+        "claim": "the change was reviewed",
+        "surface": {"status": "success", "text": "review: success"},
+        "evidence": [
+          {"name": "review_comments_posted", "value": 0, "op": ">=", "threshold": 1, "provenance": "measured", "measured_on": "head", "about": "head", "executed": false}
+        ]
+      },
+      "expected": "NOT_MEASURED",
+      "why": "The reviewing step did not run to completion; zero comments is not evidence of a clean review."
+    },
+    {
+      "id": "FG-07",
+      "title": "SQL gate that cannot fail: comparison against NULL",
+      "pattern": "missing_value_coerced",
+      "observed": "2026-08",
+      "description": "A reconciliation gate flags rows where abs(recorded - expected) >= 0.01. The recorded column is NULL for every row, so the predicate evaluates to NULL, never true, and the gate reports zero mismatches for weeks.",
+      "input": {
+        "claim": "recorded totals reconcile with expected totals",
+        "surface": {"status": "passed", "text": "0 mismatching rows"},
+        "evidence": [
+          {"name": "max_abs_difference", "value": null, "op": "<", "threshold": 0.01, "provenance": "measured", "measured_on": "table", "about": "table", "executed": true}
+        ]
+      },
+      "expected": "NOT_MEASURED",
+      "why": "Three-valued logic: NULL comparisons are neither true nor false; the gate could never have flagged anything."
+    },
+    {
+      "id": "FG-08",
+      "title": "HTTP 200 on writes that were silently rolled back",
+      "pattern": "status_code_instead_of_effect",
+      "observed": "2026-08",
+      "description": "Five payment-related endpoints return HTTP 200. An earlier statement in the same transaction had failed, so the final COMMIT acted as a ROLLBACK without raising. No row was persisted.",
+      "input": {
+        "claim": "the endpoints record the operation",
+        "surface": {"status": "200", "text": "5/5 endpoints returned 200"},
+        "evidence": [
+          {"name": "rows_persisted_per_call", "value": 0, "op": ">=", "threshold": 1, "provenance": "measured", "measured_on": "database", "about": "database", "executed": true}
+        ]
+      },
+      "expected": "FAIL",
+      "why": "The effect was measured and it is zero."
+    },
+    {
+      "id": "FG-09",
+      "title": "Screen proof matched a decorative header",
+      "pattern": "proof_matches_decoration",
+      "observed": "2026-08",
+      "description": "An end-to-end check passes if the page contains the words 'Price table'. Those words are a fixed heading; the table under it rendered zero rows.",
+      "input": {
+        "claim": "the price table is shown to users",
+        "surface": {"status": "passed", "text": "found text 'Price table'"},
+        "evidence": [
+          {"name": "table_rows_rendered", "value": 0, "op": ">=", "threshold": 1, "provenance": "measured", "measured_on": "page", "about": "page", "executed": true}
+        ]
+      },
+      "expected": "FAIL",
+      "why": "The feature was measured: zero rows."
+    },
+    {
+      "id": "FG-10",
+      "title": "'Suite completed: success' for a different commit",
+      "pattern": "wrong_subject",
+      "observed": "2026-09",
+      "description": "An event notification says the test suite completed with success. Its commit id belongs to an earlier head of the pull request; the current head has no completed run.",
+      "input": {
+        "claim": "the current head passed CI",
+        "surface": {"status": "success", "text": "check_suite completed: success"},
+        "evidence": [
+          {"name": "suite_passed", "value": 1, "op": "==", "threshold": 1, "provenance": "measured", "measured_on": "sha:previous", "about": "sha:current", "executed": true}
+        ]
+      },
+      "expected": "NOT_MEASURED",
+      "why": "A green on another commit says nothing about this one."
+    },
+    {
+      "id": "FG-11",
+      "title": "Health endpoint 200 while connected to an empty store",
+      "pattern": "status_code_instead_of_effect",
+      "observed": "2026-08",
+      "description": "After a migration a client session connected to an older, empty copy of the state database. Every call returned 200 with empty results, so the agent concluded there was no prior work and started over.",
+      "input": {
+        "claim": "the session sees the current state",
+        "surface": {"status": "200", "text": "health: ok"},
+        "evidence": [
+          {"name": "records_visible", "value": 0, "op": ">=", "threshold": 1, "provenance": "measured", "measured_on": "store", "about": "store", "executed": true}
+        ]
+      },
+      "expected": "FAIL",
+      "why": "Measured content is empty where it must not be."
+    },
+    {
+      "id": "FG-12",
+      "title": "Off-site replica 'fresh' every 15 minutes, of a dead source",
+      "pattern": "freshness_of_copy_not_content",
+      "observed": "2026-09",
+      "description": "A replication job copied a database off-site every 15 minutes and the replica's timestamp was always recent. The source it copied had stopped receiving writes 24 days earlier; the live database had moved to another machine.",
+      "input": {
+        "claim": "the off-site replica protects current data",
+        "surface": {"status": "ok", "text": "replica age: 9 min"},
+        "evidence": [
+          {"name": "replica_age_minutes", "value": 9, "op": "<=", "threshold": 30, "provenance": "measured", "measured_on": "replica", "about": "replica", "executed": true},
+          {"name": "newest_record_lag_vs_live_minutes", "value": 34560, "op": "<=", "threshold": 30, "provenance": "measured", "measured_on": "replica", "about": "replica", "executed": true}
+        ]
+      },
+      "expected": "FAIL",
+      "why": "Copy freshness is not content freshness."
+    },
+    {
+      "id": "FG-13",
+      "title": "Level threshold green while the rate says 'full in 19 days'",
+      "pattern": "level_vs_rate",
+      "observed": "2026-09",
+      "description": "Disk cleanup reports 'approved' when usage is under 85%. A machine at 74% was losing 1.6 GB a day; the cleanup freed just enough each week to stay under the line.",
+      "input": {
+        "claim": "disk is healthy",
+        "surface": {"status": "approved", "text": "disk 74% (limit 85%)"},
+        "evidence": [
+          {"name": "usage_percent", "value": 74, "op": "<", "threshold": 85, "provenance": "measured", "measured_on": "disk", "about": "disk", "executed": true},
+          {"name": "days_until_full", "value": 19, "op": ">=", "threshold": 30, "provenance": "measured", "measured_on": "disk", "about": "disk", "executed": true}
+        ]
+      },
+      "expected": "FAIL",
+      "why": "When a stock and a rate disagree, the weaker one decides."
+    },
+    {
+      "id": "FG-14",
+      "title": "The measurement changed what it measured",
+      "pattern": "instrument_alters_subject",
+      "observed": "2026-09",
+      "description": "A survey of old temporary files walked the tree, updating access times. Retention uses the newest timestamp, so files eligible for deletion dropped from 24 GB to 0.87 GB because of the survey itself.",
+      "input": {
+        "claim": "only 0.87 GB is eligible for cleanup",
+        "surface": {"status": "ok", "text": "eligible: 0.87 GB"},
+        "evidence": [
+          {"name": "eligible_gb", "value": 0.87, "op": "<=", "threshold": 5, "provenance": "measured", "measured_on": "tree_after_survey", "about": "tree_before_survey", "executed": true}
+        ]
+      },
+      "expected": "NOT_MEASURED",
+      "why": "The subject measured is not the subject the claim is about."
+    },
+    {
+      "id": "FG-15",
+      "title": "Service exits SUCCESS while its update step failed every run",
+      "pattern": "nonfatal_step_hidden",
+      "observed": "2026-09",
+      "description": "A scheduled job's pre-step (refresh code from the main branch) is marked non-fatal and its stderr is discarded. It failed on 100% of runs since creation; the job reported SUCCESS each time and ran stale code.",
+      "input": {
+        "claim": "the job runs the latest code",
+        "surface": {"status": "success", "text": "exit 0/SUCCESS"},
+        "evidence": [
+          {"name": "refresh_step_success_rate", "value": 0.0, "op": ">=", "threshold": 1.0, "provenance": "measured", "measured_on": "job", "about": "job", "executed": true}
+        ]
+      },
+      "expected": "FAIL",
+      "why": "The step that matters was measured and always failed."
+    },
+    {
+      "id": "FG-16",
+      "title": "Local CI runner answered from cache",
+      "pattern": "cache_answers_for_origin",
+      "observed": "2026-08",
+      "description": "A self-hosted CI runner reused a cached checkout of an action instead of the current version. The run was green, but it measured old code.",
+      "input": {
+        "claim": "the current workflow passed",
+        "surface": {"status": "success", "text": "all jobs passed"},
+        "evidence": [
+          {"name": "workflow_passed", "value": 1, "op": "==", "threshold": 1, "provenance": "cached", "measured_on": "cached_revision", "about": "current_revision", "executed": true}
+        ]
+      },
+      "expected": "NOT_MEASURED",
+      "why": "A cache that answers in place of the origin is memory, not measurement."
+    },
+    {
+      "id": "FG-17",
+      "title": "Variant usage scores are self-reported",
+      "pattern": "self_report",
+      "observed": "2026-10",
+      "description": "Instruction variants are scored by the agent that used them, reporting its own outcome. No independent paired evaluation exists. A dashboard shows a positive score for several variants.",
+      "input": {
+        "claim": "the variant is better than its parent",
+        "surface": {"status": "ok", "text": "variant score +0.12"},
+        "evidence": [
+          {"name": "score_delta", "value": 0.12, "op": ">", "threshold": 0.05, "provenance": "self_reported", "measured_on": "variant", "about": "variant", "executed": true}
+        ]
+      },
+      "expected": "NOT_MEASURED",
+      "why": "A party grading its own work is not a measurement."
+    },
+    {
+      "id": "FG-18",
+      "title": "'Second generation is worse: 0 of 125' without statistical power",
+      "pattern": "underpowered_verdict",
+      "observed": "2026-10",
+      "description": "A first-generation generator produced winners at 1.1% (7 of 619). A second-generation generator produced 0 of 125 and was retired as worse. Under the first generation's rate, 1.4 winners were expected in 125 tries.",
+      "input": {
+        "claim": "generation 2 is worse than generation 1",
+        "surface": {"status": "ok", "text": "gen2 hit rate 0.0% < gen1 1.1%: retired"},
+        "evidence": [
+          {"name": "one_sided_p_gen2_lower", "value": 0.27, "op": "<=", "threshold": 0.05, "provenance": "measured", "measured_on": "generators", "about": "generators", "executed": true, "n": 125, "n_required": 1612}
+        ]
+      },
+      "expected": "NOT_MEASURED",
+      "why": "Sample far below what is needed to distinguish the two rates."
+    },
+    {
+      "id": "FG-19",
+      "title": "Paired evaluation where the placebo wins as often as real candidates",
+      "pattern": "no_noise_floor",
+      "observed": "2026-10",
+      "description": "A placebo arm (the parent compared against an unchanged copy of itself) was 'won' by the copy on 4 of 5 nights. Real candidates in the same period won about 2 of 8. A promotion is proposed for a candidate that won its pairing.",
+      "input": {
+        "claim": "the candidate beats its parent",
+        "surface": {"status": "won", "text": "candidate won paired evaluation"},
+        "evidence": [
+          {"name": "candidate_minus_placebo_win_rate", "value": -0.55, "op": ">", "threshold": 0.05, "provenance": "measured", "measured_on": "evaluator", "about": "evaluator", "executed": true, "n": 5, "n_required": 20}
+        ]
+      },
+      "expected": "NOT_MEASURED",
+      "why": "Without a noise floor established on enough nights, a 'win' is indistinguishable from the placebo."
+    },
+    {
+      "id": "FG-20",
+      "title": "Monthly cost claim = one day x 30",
+      "pattern": "projection_presented_as_measurement",
+      "observed": "2026-10",
+      "description": "A public number '~2 USD per month' came from multiplying the last 24 hours by 30, excluding a flat subscription and image-generation meters. Month-to-date meters summed to over 6 USD.",
+      "input": {
+        "claim": "monthly AI spend is about 2 USD",
+        "surface": {"status": "ok", "text": "projected 1.95 USD / month"},
+        "evidence": [
+          {"name": "monthly_cost_usd", "value": 1.95, "op": "<=", "threshold": 2.5, "provenance": "projected", "measured_on": "one_day", "about": "month", "executed": true}
+        ]
+      },
+      "expected": "NOT_MEASURED",
+      "why": "A projection from one day of a subset of meters is not a monthly measurement."
+    },
+    {
+      "id": "FG-21",
+      "title": "Three check runs with the same name on one commit",
+      "pattern": "wrong_subject",
+      "observed": "2026-09",
+      "description": "One commit carried three runs of the required check: success (manual trigger), skipped (draft), cancelled (superseded). The merge gate used the event-triggered one, so the PR stayed blocked while a reader saw 'success'.",
+      "input": {
+        "claim": "the required check passed for the gate",
+        "surface": {"status": "success", "text": "required check: success"},
+        "evidence": [
+          {"name": "required_check_passed", "value": 1, "op": "==", "threshold": 1, "provenance": "measured", "measured_on": "manual_run", "about": "gate_run", "executed": true}
+        ]
+      },
+      "expected": "NOT_MEASURED",
+      "why": "The green belongs to a run the gate does not read."
+    },
+    {
+      "id": "FG-22",
+      "title": "Promotion on 5 evaluation cases against a floor of 100",
+      "pattern": "underpowered_verdict",
+      "observed": "2026-10",
+      "description": "An instruction edit won 5 of 5 paired cases and was promoted. The written promotion floor is 100 evaluated cases.",
+      "input": {
+        "claim": "the edit improves outcomes",
+        "surface": {"status": "promoted", "text": "5/5 wins"},
+        "evidence": [
+          {"name": "win_rate", "value": 1.0, "op": ">", "threshold": 0.5, "provenance": "measured", "measured_on": "edit", "about": "edit", "executed": true, "n": 5, "n_required": 100}
+        ]
+      },
+      "expected": "NOT_MEASURED",
+      "why": "Sample below the pre-declared floor."
+    },
+    {
+      "id": "FG-23",
+      "title": "No evidence at all, and no failure either",
+      "pattern": "absence_as_approval",
+      "observed": "2026-09",
+      "description": "A merge script lists failing checks; the API call that reads checks returned 403, so the list was empty. 'No failing checks' was read as 'all green'.",
+      "input": {
+        "claim": "no checks are failing",
+        "surface": {"status": "ok", "text": "0 failing checks"},
+        "evidence": []
+      },
+      "expected": "NOT_MEASURED",
+      "why": "An empty list caused by a read error is absence of data."
+    },
+    {
+      "id": "FG-24",
+      "title": "Tooling 'timeouts' that were actually successful writes",
+      "pattern": "status_code_instead_of_effect",
+      "observed": "2026-07",
+      "description": "Four memory-store writes reported a transport timeout and were about to be retried. Searching the store showed all four had been saved. The opposite of a false green, included as a false-red control on the same mechanism.",
+      "input": {
+        "claim": "the write was saved",
+        "surface": {"status": "timeout", "text": "error: request timed out"},
+        "evidence": [
+          {"name": "records_found_after_write", "value": 1, "op": ">=", "threshold": 1, "provenance": "measured", "measured_on": "store", "about": "store", "executed": true}
+        ]
+      },
+      "expected": "PASS",
+      "why": "The effect was measured and present; the surface error is a false red."
+    },
+    {
+      "id": "CTRL-01",
+      "title": "Control: full suite ran on the current head",
+      "pattern": "control",
+      "observed": "synthetic",
+      "description": "Required check success, all suites executed on the current head.",
+      "input": {
+        "claim": "the change is tested and safe to merge",
+        "surface": {"status": "success", "text": "required check: success (120 of 125 steps)"},
+        "evidence": [
+          {"name": "test_suites_executed", "value": 6, "op": ">=", "threshold": 1, "provenance": "measured", "measured_on": "sha:current", "about": "sha:current", "executed": true},
+          {"name": "suite_passed", "value": 1, "op": "==", "threshold": 1, "provenance": "measured", "measured_on": "sha:current", "about": "sha:current", "executed": true}
+        ]
+      },
+      "expected": "PASS",
+      "why": "Measured, on the right subject, and within the rule."
+    },
+    {
+      "id": "CTRL-02",
+      "title": "Control: cost meter read successfully",
+      "pattern": "control",
+      "observed": "synthetic",
+      "description": "Month-to-date cost read from the provider meter.",
+      "input": {
+        "claim": "spend is within budget",
+        "surface": {"status": "green", "text": "month-to-date: 6.56"},
+        "evidence": [
+          {"name": "month_to_date_cost", "value": 6.56, "op": "<=", "threshold": 200, "provenance": "measured", "measured_on": "month", "about": "month", "executed": true}
+        ]
+      },
+      "expected": "PASS",
+      "why": "Measured and within the rule."
+    },
+    {
+      "id": "CTRL-03",
+      "title": "Control: review comment present",
+      "pattern": "control",
+      "observed": "synthetic",
+      "description": "Automated review completed and posted findings.",
+      "input": {
+        "claim": "the change was reviewed",
+        "surface": {"status": "success", "text": "review: success"},
+        "evidence": [
+          {"name": "review_comments_posted", "value": 3, "op": ">=", "threshold": 1, "provenance": "measured", "measured_on": "sha:current", "about": "sha:current", "executed": true}
+        ]
+      },
+      "expected": "PASS",
+      "why": "The review happened."
+    },
+    {
+      "id": "CTRL-04",
+      "title": "Control: powered comparison",
+      "pattern": "control",
+      "observed": "synthetic",
+      "description": "A candidate beat its parent with enough evaluated cases and above the placebo rate.",
+      "input": {
+        "claim": "the candidate beats its parent",
+        "surface": {"status": "won", "text": "candidate won paired evaluation"},
+        "evidence": [
+          {"name": "candidate_minus_placebo_win_rate", "value": 0.12, "op": ">", "threshold": 0.05, "provenance": "measured", "measured_on": "evaluator", "about": "evaluator", "executed": true, "n": 40, "n_required": 20}
+        ]
+      },
+      "expected": "PASS",
+      "why": "Measured with the pre-declared sample."
+    },
+    {
+      "id": "CTRL-05",
+      "title": "Control: measured failure shown as failure",
+      "pattern": "control",
+      "observed": "synthetic",
+      "description": "Tests ran and two failed; the surface is red too.",
+      "input": {
+        "claim": "the change is tested and safe to merge",
+        "surface": {"status": "failure", "text": "2 tests failed"},
+        "evidence": [
+          {"name": "failed_tests", "value": 2, "op": "==", "threshold": 0, "provenance": "measured", "measured_on": "sha:current", "about": "sha:current", "executed": true}
+        ]
+      },
+      "expected": "FAIL",
+      "why": "A true red."
+    },
+    {
+      "id": "CTRL-06",
+      "title": "Control: replica fresh in content",
+      "pattern": "control",
+      "observed": "synthetic",
+      "description": "Replica copied recently and its newest record matches the live store at copy time.",
+      "input": {
+        "claim": "the off-site replica protects current data",
+        "surface": {"status": "ok", "text": "replica age: 9 min"},
+        "evidence": [
+          {"name": "replica_age_minutes", "value": 9, "op": "<=", "threshold": 30, "provenance": "measured", "measured_on": "replica", "about": "replica", "executed": true},
+          {"name": "newest_record_lag_vs_live_minutes", "value": 0, "op": "<=", "threshold": 30, "provenance": "measured", "measured_on": "replica", "about": "replica", "executed": true}
+        ]
+      },
+      "expected": "PASS",
+      "why": "Both copy and content are fresh."
+    }
+  ]
+}

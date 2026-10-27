@@ -1,0 +1,8 @@
+honest-gates
+Copyright 2026 LSC-Lab (https://lsc-lab.com)
+
+Code in this repository (false_green_bench/, analysis/, tests/) is licensed under
+the Apache License, Version 2.0 (LICENSE).
+
+Data and text (data/, docs/, README.md) are licensed under Creative Commons
+Attribution 4.0 International (LICENSE-DATA).
